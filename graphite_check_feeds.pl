@@ -7,7 +7,12 @@
 #              should have been collected within the last hour.
 #
 #=========================================================================================================
+# Change Hsistory
+# 02/10/17 PDL  Not only check for data existence but also for data validity. See if there has been *valid*
+#               data within the last hour.
+#=========================================================================================================
 use strict;
+use List::Util qw[min max];
 use LWP::UserAgent;
 use JSON;
 #-----------------------------------------------------------------------------------------------
@@ -51,24 +56,38 @@ foreach my $cp (@collectorPoint)
    {
       my $content  = $response->content;
       my $jsonresp = decode_json($content);
+      my $minAge=time-(300*24*60*60); # set min age to sometime far in the past (300 days)
       if (scalar(@{$jsonresp}) > 0)
       {
          foreach my $target (@{$jsonresp})
          {
             my $count = scalar(@{$target->{'datapoints'}});
-            if ($count <= 0)
+            if ($count > 0)
             {
-               do_warn("$cp has no data point during the past hour\n");
+               for my $dp (@{$target->{'datapoints'}})
+               {
+                  my $value     = defined($dp->[0]) ? $dp->[0] : "UDF";
+                  my $timestamp = defined($dp->[1]) ? $dp->[1] : "UDF";
+                  
+                  if ($value ne "UDF")
+                  {
+                     $minAge = max($minAge,$timestamp);
+                  }
+               }
             }
+         }
+         if ((time()-$minAge) > (60*60)) # Most recent entry within the past hour?
+         {
+            do_warn("$cp has no valid data point during the past hour\n");
          }
       }
       else
       {
-         print "$cp has no data point during the past hour\n";
+         do_warn("$cp has no data point during the past hour\n");
       }
    }
    else
    {
-      die("Unable to retrieve data from the graphite server at: $graphiteHost on port $graphitePort\n");
+      do_die("Unable to retrieve data from the graphite server at: $graphiteHost on port $graphitePort\n");
    }
 }

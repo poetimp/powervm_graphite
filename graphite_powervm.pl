@@ -315,4 +315,27 @@ foreach my $systemName(sort(keys(%managedSystem)))
       print "Manage system $systemName skipped, Long Term Metrics not enables\n"  if $DEBUG;
    }
 }
+#==============================================================================================================================
+# Cleanup the session. NOTE: Undocumented call below. If you don't do this the sessions will linger forever in the HMC
+# https://www.ibm.com/developerworks/community/blogs/aixpert/entry/Avoiding_HMC_REST_API_Session_Issues?lang=en
+#==============================================================================================================================
+print "-------------------------------------------------------------------------------------------------\n" if $DEBUG;
+print "Response from login\n"                                                                               if $DEBUG;
+print "-------------------------------------------------------------------------------------------------\n" if $DEBUG;
+$response = $userAgent->delete("$hmcHost/rest/api/web/Logon",
+                                Content_Type      => "application/atom+xml; charset=UTF-8",
+                                'headers'         => "X-API-Session' : $sessionID",
+                                'verify'          => "false",
+                                'X-API-Session'   => $sessionID
+                              );
+
+if ($response->code == 200 or $response->code == 202 or $response->code == 204)
+{
+   print "Logout Successful\n" if $DEBUG;
+}
+else
+{
+   do_die($response->error_as_HTML);
+}
+
 print "Done\n"  if $DEBUG; # Nice to have a place to put a breakpoint at the end when debugging
